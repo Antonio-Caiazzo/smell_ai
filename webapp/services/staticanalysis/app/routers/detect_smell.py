@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-# when running locally/testing
 from webapp.services.staticanalysis.app.schemas.requests import (
     DetectSmellRequest,
 )
@@ -9,18 +8,6 @@ from webapp.services.staticanalysis.app.schemas.responses import (
 from webapp.services.staticanalysis.app.utils.static_analysis import (
     detect_static,
 )
-
-# when deploying in docker
-""" from app.schemas.requests import (
-    DetectSmellRequest,
-)
-from app.schemas.responses import (
-    DetectSmellStaticResponse,
-)
-from app.utils.static_analysis import (
-    detect_static,
-)
- """
 
 router = APIRouter()
 

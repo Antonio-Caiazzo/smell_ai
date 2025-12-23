@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/.venv
+**/venv
+**/.git
+**/.DS_Store
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+test/system_testing/output
+webapp/output

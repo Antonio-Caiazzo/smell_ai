@@ -4,7 +4,8 @@ services:
   # Gateway
   gateway:
     build:
-      context: ./webapp/gateway
+      context: .
+      dockerfile: webapp/gateway/Dockerfile
     ports:
       - "8000:8000"
     depends_on:
@@ -21,7 +22,8 @@ services:
   # AI Analysis Service
   ai_analysis_service:
     build:
-      context: ./webapp/services/aiservice
+      context: .
+      dockerfile: webapp/services/aiservice/Dockerfile
     ports:
       - "8001:8001"
     networks:
@@ -30,7 +32,8 @@ services:
   # Static Analysis Service
   static_analysis_service:
     build:
-      context: ./webapp/services/staticanalysis
+      context: .
+      dockerfile: webapp/services/staticanalysis/Dockerfile
     ports:
       - "8002:8002"
     networks:
@@ -44,7 +47,8 @@ services:
   # Report Service
   report_service:
     build:
-      context: ./webapp/services/report
+      context: .
+      dockerfile: webapp/services/report/Dockerfile
     ports:
       - "8003:8003"
     networks:
