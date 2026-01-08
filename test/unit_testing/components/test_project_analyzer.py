@@ -493,6 +493,7 @@ def test_generate_call_graph(
     # Mock CallGraphGenerator
     mock_generator_instance = MagicMock()
     mock_generator_instance.generate.return_value = {"nodes": [], "edges": []}
+    mock_generator_instance.generate_dot.return_value = "digraph G {}"
     mock_CallGraphGenerator = MagicMock(return_value=mock_generator_instance)
     
     # Patch the class where it's imported in project_analyzer.py

@@ -100,8 +100,7 @@ async def detect_call_graph(
                                 node["file_path"] = os.path.relpath(node["file_path"], temp_dir)
             else:
                  # Single File
-                 # Read content back for sniffers if needed, or pass path
-                 # For consistency with utility, we pass content + path
+
                  with open(tmp_path, 'r') as f:
                      text_content = f.read()
                  
@@ -113,10 +112,15 @@ async def detect_call_graph(
                      for node in graph["nodes"]:
 
                          if "file_path" in node:
-                             if node["file_path"] == tmp_path:
-                                 node["file_path"] = file.filename
-                             else:
-                                 node["file_path"] = os.path.basename(node["file_path"])
+                            if node["file_path"] == tmp_path:
+                                node["file_path"] = file.filename
+                            else:
+                                node["file_path"] = os.path.basename(node["file_path"])
+
+                 # Inject file name into smells for single file results
+                 for smell in smells:
+                     smell.file = file.filename
+                     smell.filename = file.filename
 
         finally:
             if os.path.exists(tmp_path):

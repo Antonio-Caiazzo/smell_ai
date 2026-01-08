@@ -14,6 +14,7 @@ import ReactFlow, {
     Node,
     Edge,
     ConnectionLineType,
+    useReactFlow,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import "reactflow/dist/style.css";
@@ -110,15 +111,15 @@ const Modal = ({ isOpen, onClose, title, children }: any) => {
     );
 };
 
-// Dagre Layout
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-    dagreGraph.setGraph({ rankdir: "TB" });
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    dagreGraph.setGraph({ rankdir: "TB", ranksep: 50, nodesep: 50 });
 
     nodes.forEach((node) => {
-        dagreGraph.setNode(node.id, { width: 180, height: 50 });
+        const label = node.data.label || "";
+        const width = Math.max(180, label.length * 9 + 40);
+        dagreGraph.setNode(node.id, { width: width, height: 50 });
     });
 
     edges.forEach((edge) => {
@@ -138,10 +139,52 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     return { nodes, edges };
 };
 
+
+
+// Component to handle auto-fitting view
+const AutoFitter = ({ trigger }: { trigger: number }) => {
+    const { fitView } = useReactFlow();
+
+    useEffect(() => {
+        // Only trigger if generation has happened (trigger > 0)
+        if (trigger > 0) {
+            // Short delay to ensure nodes are rendered and measured
+            const timer = setTimeout(() => {
+                fitView({ padding: 0.2, duration: 800 });
+            }, 250);
+            return () => clearTimeout(timer);
+        }
+    }, [trigger, fitView]);
+
+    return null;
+};
+
+// ReactFlow component wrapper to handle fitView instance access
+const GraphArea = ({ nodes, edges, onNodesChange, onEdgesChange, onNodeClick, onEdgeClick, fitViewTrigger }: any) => {
+    return (
+        <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
+            fitView
+            attributionPosition="bottom-right"
+        >
+            <AutoFitter trigger={fitViewTrigger} />
+            <MiniMap />
+            <Controls />
+            <Background color="#aaa" gap={16} />
+        </ReactFlow>
+    );
+};
+
 export default function CallGraphPage() {
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
     const folderInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Enable folder selection on the hidden input
     useEffect(() => {
@@ -159,6 +202,9 @@ export default function CallGraphPage() {
     const [rawNodes, setRawNodes] = useState<GraphNode[]>([]);
     const [rawEdges, setRawEdges] = useState<GraphEdge[]>([]);
 
+    // ReactFlow Instance for fitView removed in favor of AutoFitter
+    const [fitViewTrigger, setFitViewTrigger] = useState(0);
+
     // Selection Selection
     const [selectedNodeData, setSelectedNodeData] = useState<any>(null);
     const [selectedEdgeData, setSelectedEdgeData] = useState<any>(null);
@@ -169,6 +215,19 @@ export default function CallGraphPage() {
     const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
+
+        // Validation if user selects a single file that looks like a zip or py script in "Folder" mode, warn them
+        if (files.length === 1) {
+            const f = files[0];
+            if (f.name.endsWith('.zip') || f.name.endsWith('.py')) {
+                toast.error("Please ensure you are uploading a folder, not a single file. For single Python files, use the specific button.");
+                e.target.value = ""; // Clear input
+                setSelectedFile(null); // Clear any previous file selection
+                setFileName(""); // Clear displayed filename
+                setLoading(false);
+                return;
+            }
+        }
 
         setLoading(true);
         try {
@@ -209,6 +268,36 @@ export default function CallGraphPage() {
             setLoading(false);
             if (folderInputRef.current) {
                 folderInputRef.current.value = "";
+            }
+            // Also clear file input to ensure clean state for next single file upload
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
+
+    // Single File Selection
+    const handleSingleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setFileName(file.name);
+
+            // Clear Code Editor
+            if (file.name.endsWith(".py")) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    setCode(ev.target?.result as string);
+                };
+                reader.readAsText(file);
+            } else {
+                setCode("");
+            }
+            toast.info(`Loaded: ${file.name}`);
+
+            // Allow re-selecting the same file if needed by clearing the input value after processing
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
             }
         }
     };
@@ -292,7 +381,8 @@ export default function CallGraphPage() {
                     background: hasSmell ? "#fee2e2" : "#f0f9ff",
                     border: hasSmell ? "2px solid #ef4444" : "1px solid #7dd3fc",
                     color: "#333",
-                    width: 180,
+                    width: 'auto',
+                    minWidth: 180,
                 },
             };
         });
@@ -310,6 +400,7 @@ export default function CallGraphPage() {
         const layouted = getLayoutedElements(rfNodes, rfEdges);
         setNodes(layouted.nodes);
         setEdges(layouted.edges);
+        setFitViewTrigger((prev) => prev + 1);
     };
 
     const onNodeClick = (_: any, node: Node) => {
@@ -332,27 +423,11 @@ export default function CallGraphPage() {
 
                         <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors relative">
                             <input
+                                ref={fileInputRef}
                                 data-testid="file-upload-input"
                                 type="file"
                                 accept=".py,.zip"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        setSelectedFile(file);
-                                        setFileName(file.name);
-
-                                        if (file.name.endsWith(".py")) {
-                                            const reader = new FileReader();
-                                            reader.onload = (ev) => {
-                                                setCode(ev.target?.result as string);
-                                            };
-                                            reader.readAsText(file);
-                                        } else {
-                                            setCode("");
-                                        }
-                                        toast.info(`Loaded: ${file.name}`);
-                                    }
-                                }}
+                                onChange={handleSingleFileSelect}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             />
                             <div className="text-center p-4">
@@ -397,7 +472,7 @@ export default function CallGraphPage() {
 
                     {/* Right Panel: Graph */}
                     <div className="w-2/3 bg-gray-100 relative">
-                        <ReactFlow
+                        <GraphArea
                             nodes={nodes}
                             edges={edges}
                             onNodesChange={onNodesChange}
@@ -405,12 +480,9 @@ export default function CallGraphPage() {
                             onNodeClick={onNodeClick}
                             onEdgeClick={onEdgeClick}
                             fitView
+                            fitViewTrigger={fitViewTrigger}
                             attributionPosition="bottom-right"
-                        >
-                            <MiniMap />
-                            <Controls />
-                            <Background color="#aaa" gap={16} />
-                        </ReactFlow>
+                        />
                         <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-md border border-gray-200 opacity-95">
                             <h4 className="font-bold text-gray-700 mb-2 border-b pb-1">Legend</h4>
                             <div className="flex items-center mb-1">
@@ -480,7 +552,7 @@ export default function CallGraphPage() {
                                     <p className="text-gray-500 italic">No smells detected on this node.</p>
                                 ) : (
                                     <ul className="space-y-3 mt-2">
-                                        {selectedNodeData.smells.map((s: Smell, idx: number) => (
+                                        {[...selectedNodeData.smells].sort((a: Smell, b: Smell) => a.line - b.line).map((s: Smell, idx: number) => (
                                             <li key={idx} className="bg-red-50 p-3 rounded border border-red-200">
                                                 <p className="font-bold text-red-700">{s.smell_name}</p>
                                                 <p className="text-sm text-gray-700 mt-1">{s.description}</p>
