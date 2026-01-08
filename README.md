@@ -84,6 +84,7 @@ python -m cli.cli_runner --input <input_directory> --output <output_directory> [
 - --max_walkers: Number of workers to use for parallel execution (default: 5). Only applicable if --parallel is enabled.
 - --resume: Resume a previous analysis from where it stopped.
 - --multiple: Analyze multiple projects within the input folder.
+- --callgraph: Generate the call graph for the analyzed project in JSON and DOT format. Note: currently not supported when used together with --multiple.
 
 #### GUI
 ```bash
@@ -169,6 +170,34 @@ We have also developed a **web-based application** to provide an interface for e
 
 For detailed instructions and further information, visit: **[this link](https://github.com/xDaryamo/smell_ai/tree/main/webapp)**.
 
+### Run via Docker
+The easiest way to run the full stack (Web App + Microservices) is using Docker Compose.
+
+1. Ensure you have **Docker** and **Docker Compose** installed.
+2. From the project root, run:
+   ```bash
+   docker compose up --build
+   ```
+3. Access the application at [http://localhost:3000](http://localhost:3000).
+
+### Run Locally (Frontend only)
+If you want to run only the frontend or develop locally:
+
+1. Navigate to the `webapp` directory:
+   ```bash
+   cd webapp
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+4. Access the application at [http://localhost:3000](http://localhost:3000).
+
+> **Note**: For the full functionality (analysis, reports), the backend services must also be running.
 ---
 
 ## Acknowledgments
