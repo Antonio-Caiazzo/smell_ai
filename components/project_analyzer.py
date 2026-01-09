@@ -1,12 +1,14 @@
-import os
-import time
-import threading
-import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
-from components.inspector import Inspector
-from components.call_graph_generator import CallGraphGenerator
-from utils.file_utils import FileUtils
 import json
+import os
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import pandas as pd
+
+from components.call_graph_generator import CallGraphGenerator
+from components.inspector import Inspector
+from utils.file_utils import FileUtils
 
 
 class ProjectAnalyzer:
@@ -81,9 +83,7 @@ class ProjectAnalyzer:
                 smell_count = len(result)
                 total_smells += smell_count
                 if smell_count > 0:
-                    print(
-                        f"Found {smell_count} code smells in file: {filename}"
-                    )
+                    print(f"Found {smell_count} code smells in file: {filename}")
                 to_save = pd.concat([to_save, result], ignore_index=True)
             except (SyntaxError, FileNotFoundError) as e:
                 error_file = os.path.join(self.output_path, "error.txt")
@@ -97,14 +97,11 @@ class ProjectAnalyzer:
 
         print(f"Finished analysis for project: {project_name}")
         print(
-            f"Total code smells found in project "
-            f"'{project_name}': {total_smells}\n"
+            f"Total code smells found in project " f"'{project_name}': {total_smells}\n"
         )
         return total_smells
 
-    def analyze_projects_sequential(
-        self, base_path: str, resume: bool = False
-    ):
+    def analyze_projects_sequential(self, base_path: str, resume: bool = False):
         """
         Sequentially analyzes multiple projects.
 
@@ -120,9 +117,7 @@ class ProjectAnalyzer:
             FileUtils.initialize_log(execution_log_path)
 
         last_project = (
-            FileUtils.get_last_logged_project(execution_log_path)
-            if resume
-            else ""
+            FileUtils.get_last_logged_project(execution_log_path) if resume else ""
         )
 
         start_time = time.time()
@@ -166,13 +161,9 @@ class ProjectAnalyzer:
                                 f"Found {smell_count} code "
                                 f"smells in file: {filename}"
                             )
-                        to_save = pd.concat(
-                            [to_save, result], ignore_index=True
-                        )
+                        to_save = pd.concat([to_save, result], ignore_index=True)
                     except (SyntaxError, FileNotFoundError) as e:
-                        error_file = os.path.join(
-                            self.output_path, "error.txt"
-                        )
+                        error_file = os.path.join(self.output_path, "error.txt")
                         os.makedirs(self.output_path, exist_ok=True)
                         with open(error_file, "a") as f:
                             f.write(f"Error in file {filename}: {str(e)}\n")
@@ -180,9 +171,7 @@ class ProjectAnalyzer:
                         continue
 
                 if not to_save.empty:
-                    details_path = os.path.join(
-                        self.output_path, "project_details"
-                    )
+                    details_path = os.path.join(self.output_path, "project_details")
                     os.makedirs(details_path, exist_ok=True)
                     detailed_file_path = os.path.join(
                         details_path, f"{dirname}_results.csv"
@@ -260,13 +249,9 @@ class ProjectAnalyzer:
                                 f"Found {smell_count} code "
                                 f"smells in file: {filename}"
                             )
-                        to_save = pd.concat(
-                            [to_save, result], ignore_index=True
-                        )
+                        to_save = pd.concat([to_save, result], ignore_index=True)
                     except (SyntaxError, FileNotFoundError) as e:
-                        error_file = os.path.join(
-                            self.output_path, "error.txt"
-                        )
+                        error_file = os.path.join(self.output_path, "error.txt")
                         os.makedirs(self.output_path, exist_ok=True)
                         with open(error_file, "a") as f:
                             f.write(f"Error in file {filename}: {str(e)}\n")
@@ -274,9 +259,7 @@ class ProjectAnalyzer:
                         continue
 
                 if not to_save.empty:
-                    details_path = os.path.join(
-                        self.output_path, "project_details"
-                    )
+                    details_path = os.path.join(self.output_path, "project_details")
                     os.makedirs(details_path, exist_ok=True)
                     detailed_file_path = os.path.join(
                         details_path, f"{dirname}_results.csv"
@@ -287,9 +270,7 @@ class ProjectAnalyzer:
                 total_smells += project_smells
 
                 # Thread-safe log update
-                FileUtils.synchronized_append_to_log(
-                    execution_log_path, dirname, lock
-                )
+                FileUtils.synchronized_append_to_log(execution_log_path, dirname, lock)
 
             except Exception as e:
                 print(f"Error analyzing project '{dirname}': {str(e)}\n")
@@ -320,13 +301,13 @@ class ProjectAnalyzer:
         """
         print(f"Generating call graph for project: {project_path}")
         filenames = FileUtils.get_python_files(project_path)
-        
+
         generator = CallGraphGenerator(project_path)
         graph_data = generator.generate(filenames)
-        
+
         output_file = os.path.join(self.output_path, "call_graph.json")
         os.makedirs(self.output_path, exist_ok=True)
-        
+
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(graph_data, f, indent=4)
         print(f"Call graph saved to {output_file}")

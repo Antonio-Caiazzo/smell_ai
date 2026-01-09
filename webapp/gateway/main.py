@@ -1,11 +1,8 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import httpx
-import uvicorn
-import asyncio
 import os
-import json
+
+import httpx
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -18,13 +15,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-import os
 
 # Service URLs (Configurable via Env Vars)
 # Default to localhost for local development/testing
-AI_ANALYSIS_SERVICE = os.getenv("AI_ANALYSIS_SERVICE_URL", os.getenv("AI_ANALYSIS_SERVICE", "http://localhost:8001"))
-STATIC_ANALYSIS_SERVICE = os.getenv("STATIC_ANALYSIS_SERVICE_URL", os.getenv("STATIC_ANALYSIS_SERVICE", "http://localhost:8002"))
-REPORT_SERVICE = os.getenv("REPORT_SERVICE_URL", os.getenv("REPORT_SERVICE", "http://localhost:8003"))
+AI_ANALYSIS_SERVICE = os.getenv(
+    "AI_ANALYSIS_SERVICE_URL", os.getenv("AI_ANALYSIS_SERVICE", "http://localhost:8001")
+)
+STATIC_ANALYSIS_SERVICE = os.getenv(
+    "STATIC_ANALYSIS_SERVICE_URL",
+    os.getenv("STATIC_ANALYSIS_SERVICE", "http://localhost:8002"),
+)
+REPORT_SERVICE = os.getenv(
+    "REPORT_SERVICE_URL", os.getenv("REPORT_SERVICE", "http://localhost:8003")
+)
 
 
 @app.get("/")
@@ -49,8 +52,7 @@ async def detect_smell_ai(request: dict):
             "error": f"Request to AI Analysis Service failed: {str(exc)}",
         }
     except httpx.TimeoutException:
-        return {"success": False,
-                "error": "Request to AI Analysis Service timed out"}
+        return {"success": False, "error": "Request to AI Analysis Service timed out"}
 
 
 # Proxy requests to Static Analysis Service
@@ -69,7 +71,7 @@ async def detect_call_graph(
     request: Request,
     file: UploadFile = File(None),
     code_snippet: str = Form(None),
-    include_call_graph: bool = Form(True)
+    include_call_graph: bool = Form(True),
 ):
     async with httpx.AsyncClient() as client:
         if file:
@@ -77,15 +79,15 @@ async def detect_call_graph(
             response = await client.post(
                 f"{STATIC_ANALYSIS_SERVICE}/detect_call_graph",
                 files=files,
-                data={"include_call_graph": str(include_call_graph)}
+                data={"include_call_graph": str(include_call_graph)},
             )
         else:
             response = await client.post(
                 f"{STATIC_ANALYSIS_SERVICE}/detect_call_graph",
-                json={
+                data={
                     "code_snippet": code_snippet,
-                    "include_call_graph": include_call_graph
-                }
+                    "include_call_graph": str(include_call_graph),
+                },
             )
     return response.json()
 
@@ -94,6 +96,5 @@ async def detect_call_graph(
 @app.post("/api/generate_report")
 async def generate_report(request: dict):
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{REPORT_SERVICE}/generate_report", json=request)
+        response = await client.post(f"{REPORT_SERVICE}/generate_report", json=request)
     return response.json()
