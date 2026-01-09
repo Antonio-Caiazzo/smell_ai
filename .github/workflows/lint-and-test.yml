@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - flake
+      - coverage
   pull_request:
 
 jobs:

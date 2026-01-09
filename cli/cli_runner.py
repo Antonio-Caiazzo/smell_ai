@@ -1,5 +1,6 @@
 import argparse
 import sys
+
 from components.project_analyzer import ProjectAnalyzer
 
 
@@ -60,13 +61,14 @@ class CodeSmileCLI:
                 )
         else:
             total_smells = self.analyzer.analyze_project(self.args.input)
-            print(
-                f"Analysis completed. Total code smells found: {total_smells}"
-            )
+            print(f"Analysis completed. Total code smells found: {total_smells}")
 
         if self.args.callgraph:
             if self.args.multiple:
-                print("Call Graph generation is not supported for multiple projects mode yet.")
+                print(
+                    "Call Graph generation is not supported for multiple projects mode "
+                    "yet."
+                )
             else:
                 self.analyzer.generate_call_graph(self.args.input)
 
