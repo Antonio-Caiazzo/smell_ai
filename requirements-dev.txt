@@ -1,0 +1,9 @@
+coverage>=7.0
+pytest
+pytest-mock
+pytest-xvfb
+flake8
+black
+isort
+ruff
+autopep8
