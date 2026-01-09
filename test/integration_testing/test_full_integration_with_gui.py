@@ -1,8 +1,10 @@
-import pytest
 import os
-import pandas as pd
 from tkinter import Tk
 from unittest.mock import Mock, patch
+
+import pandas as pd
+import pytest
+
 from gui.code_smell_detector_gui import CodeSmellDetectorGUI
 
 
@@ -12,6 +14,7 @@ def integration_setup(tmp_path):
     output_path = tmp_path / "output"
 
     input_path.mkdir()
+    output_path.mkdir()
     (input_path / "test_file.py").write_text(
         """
 import pandas as pd
