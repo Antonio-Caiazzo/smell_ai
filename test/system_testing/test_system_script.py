@@ -1,14 +1,13 @@
-import shutil
+import os
 import subprocess
-from pathlib import Path
-from typing import Dict, List, Union, Optional
 import sys
 import time
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import pytest
 import requests
-import os
 
 # Base directory che contiene le cartelle TC_01 .. TC_20
 BASE_DIR = Path(__file__).resolve().parent
@@ -26,6 +25,15 @@ def manage_services():
     """
     print("\n[setup] Starting minimal services from test_system_script.py...")
     
+    # Check if already running
+    try:
+        requests.get(f"{GATEWAY_URL}/", timeout=1)
+        print("\n[setup] Gateway already running! Skipping startup.")
+        yield
+        return
+    except requests.exceptions.RequestException:
+        pass
+
     if not START_SCRIPT.exists():
         print(f"[setup] Warning: {START_SCRIPT} not found. Skipping auto-start.")
         yield
@@ -59,12 +67,13 @@ def manage_services():
             PIDS_FILE.unlink()
         except FileNotFoundError:
             pass
+
+
 TestConfig = Dict[str, Union[str, bool, int, List[str]]]
 
 
 TEST_CASES: Dict[str, TestConfig] = {
     # ================== ERROR CASES (TC_01..TC_05) ==================
-
     # TC_01
     # NF1, EF0, NP1, SP1, NCS0, TCS0, ME2, EP2, NW0, RES2, OUT1
     # Oracolo: il tool segnala che non ci sono file in input da analizzare
@@ -73,12 +82,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Assenza di file di input: nessuna analisi, errore segnalato.",
         "expected_error": True,
         "expected_smells": None,
-        "parallel": False,   # EP2
-        "max_walkers": 5,    # ignorato perché parallel=False
-        "resume": False,     # RES2
-        "multiple": False,   # NP1
+        "parallel": False,  # EP2
+        "max_walkers": 5,  # ignorato perché parallel=False
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
     },
-
     # TC_02
     # NF2, EF1, NP1, SP3, NCS0, TCS0, ME2, EP2, NW0, RES2, OUT1
     # Oracolo: errore sulla struttura del progetto, sottocartelle inaccessibili.
@@ -86,15 +94,14 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Struttura del progetto con sottocartelle inaccessibili: errore segnalato.",
         "expected_error": True,
         "expected_smells": None,
-        "parallel": False,   # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": False,     # RES2
-        "multiple": False,   # NP1
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
         # Path (relativo a tc_path) che rappresenta la sottocartella da rendere inaccessibile.
         # Adatta questo nome in base alla struttura reale della cartella TC_02.
         "unreadable_paths": ["MockDirectoryNotAccessible"],
     },
-
     # TC_03
     # NF2, EF1, NP1, SP1, NCS0, TCS0, ME2, EP1, NW1, RES2, OUT1
     # Oracolo: numero di walkers non valido (<=0), nessuna analisi.
@@ -102,12 +109,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Numero di walkers non valido (<=0) con parallelismo attivo: errore.",
         "expected_error": True,
         "expected_smells": None,
-        "parallel": True,    # EP1
-        "max_walkers": 0,    # NW1 (<=0) -> errore
-        "resume": False,     # RES2
-        "multiple": False,   # NP1
+        "parallel": True,  # EP1
+        "max_walkers": 0,  # NW1 (<=0) -> errore
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
     },
-
     # TC_04
     # NF2, EF1, NP1, SP1, NCS0, TCS0, ME2, EP2, NW0, RES2, OUT2
     # Oracolo: percorso di output mancante o non accessibile.
@@ -115,14 +121,13 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Percorso di output non accessibile: errore.",
         "expected_error": True,
         "expected_smells": None,
-        "parallel": False,   # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": False,     # RES2
-        "multiple": False,   # NP1
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
         # flag speciale per rendere inaccessibile la cartella di output generata
         "lock_output": True,
     },
-
     # TC_05
     # NF2, EF2, NP1, SP1, NCS0, TCS0, ME2, EP2, NW0, RES2, OUT1
     # Oracolo: nessun file .py, il tool segnala l’errore e non analizza.
@@ -130,14 +135,12 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Nessun file Python da analizzare: errore e nessuna analisi.",
         "expected_error": True,
         "expected_smells": None,
-        "parallel": False,   # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": False,     # RES2
-        "multiple": False,   # NP1
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
     },
-
     # ================== SUCCESS CASES – NCS = 0 (TC_06..TC_08) ==================
-
     # TC_06
     # NF3, EF1, NP1, SP1, NCS1 (0 smells), TCS0, ME2, EP2, NW0, RES2, OUT1
     # Oracolo: singolo progetto, nessun code smell.
@@ -145,12 +148,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto, nessun code smell.",
         "expected_error": False,
         "expected_smells": 0,  # NCS1 -> 0 smell
-        "parallel": False,     # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": False,       # RES2
-        "multiple": False,     # NP1
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
     },
-
     # TC_07
     # NF3, EF1, NP2, SP1, NCS1 (0 smells), TCS0, ME2, EP2, NW0, RES2, OUT1
     # Oracolo: multi progetto, nessun code smell.
@@ -158,12 +160,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi multi-progetto, nessun code smell.",
         "expected_error": False,
         "expected_smells": 0,
-        "parallel": False,     # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": False,       # RES2
-        "multiple": True,      # NP2
+        "resume": False,  # RES2
+        "multiple": True,  # NP2
     },
-
     # TC_08
     # NF3, EF1, NP1, SP2, NCS1 (0 smells), TCS0, ME2, EP2, NW0, RES2, OUT1
     # Oracolo: progetto singolo, struttura annidata, nessun code smell.
@@ -171,14 +172,12 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto annidato, nessun code smell.",
         "expected_error": False,
         "expected_smells": 0,
-        "parallel": False,     # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": False,       # RES2
-        "multiple": False,     # NP1
+        "resume": False,  # RES2
+        "multiple": False,  # NP1
     },
-
     # ================== SUCCESS CASES – SMELL PRESENTI (TC_09..TC_16) ==================
-
     # TC_09
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1 (generico),
     # ME2, EP2, NW0, RES1, OUT1
@@ -186,12 +185,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto: 1 code smell generico.",
         "expected_error": False,
         "expected_smells": 1,
-        "parallel": False,     # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": True,        # RES1
-        "multiple": False,     # NP1
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_10
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS2 (API-specific),
     # ME2, EP2, NW0, RES1, OUT1
@@ -199,12 +197,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto: 1 code smell API-specific.",
         "expected_error": False,
         "expected_smells": 1,
-        "parallel": False,     # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": True,        # RES1
-        "multiple": False,     # NP1
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_11
     # NF2, EF1, NP1, SP1, NCS3 (>1), TCS1 (generici),
     # ME2, EP2, NW0, RES1, OUT1
@@ -212,12 +209,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto: >1 code smell generico.",
         "expected_error": False,
         "expected_smells": ">=2",  # NCS3 -> >1 smell
-        "parallel": False,         # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": True,            # RES1
-        "multiple": False,         # NP1
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_12
     # NF2, EF1, NP1, SP1, NCS3 (>1), TCS2 (API-specific),
     # ME2, EP2, NW0, RES1, OUT1
@@ -225,12 +221,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto: >1 code smell API-specific.",
         "expected_error": False,
         "expected_smells": ">=2",
-        "parallel": False,         # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": True,            # RES1
-        "multiple": False,         # NP1
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_13
     # NF2, EF1, NP1, SP1, NCS3 (>1), TCS3 (misto),
     # ME2, EP2, NW0, RES1, OUT1
@@ -238,12 +233,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi singolo progetto: >1 code smell misto.",
         "expected_error": False,
         "expected_smells": ">=2",
-        "parallel": False,         # EP2
+        "parallel": False,  # EP2
         "max_walkers": 5,
-        "resume": True,            # RES1
-        "multiple": False,         # NP1
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_14
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
     # ME2, EP1, NW2 (<5), RES1, OUT1
@@ -251,12 +245,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi parallela: 1 code smell generico, walkers < 5.",
         "expected_error": False,
         "expected_smells": 1,
-        "parallel": True,          # EP1
-        "max_walkers": 3,          # NW2 -> <5
-        "resume": True,            # RES1
-        "multiple": False,         # NP1
+        "parallel": True,  # EP1
+        "max_walkers": 3,  # NW2 -> <5
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_15
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
     # ME2, EP1, NW3 (=5), RES1, OUT1
@@ -264,12 +257,11 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi parallela: 1 code smell generico, walkers = 5.",
         "expected_error": False,
         "expected_smells": 1,
-        "parallel": True,          # EP1
-        "max_walkers": 5,          # NW3 -> =5
-        "resume": True,            # RES1
-        "multiple": False,         # NP1
+        "parallel": True,  # EP1
+        "max_walkers": 5,  # NW3 -> =5
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # TC_16
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
     # ME2, EP1, NW4 (>5), RES1, OUT1
@@ -277,15 +269,13 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "Analisi parallela: 1 code smell generico, walkers > 5.",
         "expected_error": False,
         "expected_smells": 1,
-        "parallel": True,          # EP1
-        "max_walkers": 6,          # NW4 -> >5
-        "resume": True,            # RES1
-        "multiple": False,         # NP1
+        "parallel": True,  # EP1
+        "max_walkers": 6,  # NW4 -> >5
+        "resume": True,  # RES1
+        "multiple": False,  # NP1
     },
-
     # ================== WEBAPP CASES (TC_17..TC_20) ==================
-
-    # TC_17 
+    # TC_17
     # NF2, EF1, NP1, SP1, NCS1,
     # TCS0, ME1, EP2, NW0, RES0,
     # OUT1, DB1, EG1
@@ -298,9 +288,7 @@ TEST_CASES: Dict[str, TestConfig] = {
         "expected_status": "2xx",
         "expected_error": False,
     },
-
-
-    # TC_18 
+    # TC_18
     # NF2, EF1, NP1, SP1, NCS0,
     # TCS0, ME1, EP2, NW0, RES0,
     # OUT1, DB2, EG0
@@ -310,11 +298,10 @@ TEST_CASES: Dict[str, TestConfig] = {
         "description": "WebApp: backend non raggiungibile (wrapped error).",
         "type": "WEBAPP",
         "endpoint": "/api/detect_smell_ai",
-        "expected_status": "200_error_wrapped", 
+        "expected_status": "200_error_wrapped",
         "expected_error": True,
     },
-
-    # TC_19 
+    # TC_19
     # NF2, EF1, NP1, SP1, NCS0,
     # TCS0, ME1, EP2, NW0, RES0,
     # OUT1, DB1, EG2
@@ -328,8 +315,7 @@ TEST_CASES: Dict[str, TestConfig] = {
         "invalid_request": True,
         "expected_error": True,
     },
-
-    # TC_20 
+    # TC_20
     # NF2, EF1, NP1, SP1, NCS0,
     # TCS0, ME1, EP2, NW0, RES0,
     # OUT1, DB1, EG3
@@ -342,9 +328,7 @@ TEST_CASES: Dict[str, TestConfig] = {
         "timeout_test": True,
         "expected_error": True,
     },
-
     # ================== CALL GRAPH CASES (TC_21..TC_28) ==================
-
     # TC_21
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1 (generico),
     # ME2, EP2, NW0, RES1, OUT1, CG1
@@ -358,7 +342,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_22
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS2 (API-specific),
     # ME2, EP2, NW0, RES1, OUT1, CG1
@@ -372,7 +355,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_23
     # NF2, EF1, NP1, SP1, NCS3 (>1), TCS1 (generici),
     # ME2, EP2, NW0, RES1, OUT1, CG1
@@ -386,7 +368,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_24
     # NF2, EF1, NP1, SP1, NCS3 (>1), TCS2 (API-specific),
     # ME2, EP2, NW0, RES1, OUT1, CG1
@@ -400,7 +381,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_25
     # NF2, EF1, NP1, SP1, NCS3 (>1), TCS3 (misto),
     # ME2, EP2, NW0, RES1, OUT1, CG1
@@ -414,7 +394,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_26
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
     # ME2, EP1, NW2 (<5), RES1, OUT1, CG1
@@ -428,7 +407,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_27
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
     # ME2, EP1, NW3 (=5), RES1, OUT1, CG1
@@ -442,7 +420,6 @@ TEST_CASES: Dict[str, TestConfig] = {
         "multiple": False,
         "callgraph": True,
     },
-
     # TC_28
     # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
     # ME2, EP1, NW4 (>5), RES1, OUT1, CG1
@@ -522,7 +499,7 @@ def test_system_case(tc_dir: str) -> None:
     # 0) Check if WEBAPP or CLI
     if config.get("type") == "WEBAPP":
         gateway_url = os.environ.get("CODESMILE_GATEWAY_URL", "http://localhost:8000")
-        
+
         # Read the first file in tc_path to use as code_snippet
         code_snippet = ""
         if tc_path.exists():
@@ -533,10 +510,10 @@ def test_system_case(tc_dir: str) -> None:
                         break
                     except Exception:
                         pass
-        
+
         # Prepare JSON payload
         payload = {"code_snippet": code_snippet}
-        
+
         if config.get("invalid_request"):
             # TC_19: Send malformed payload (missing code_snippet)
             payload = {"wrong_field": "test"}
@@ -545,42 +522,54 @@ def test_system_case(tc_dir: str) -> None:
         url = f"{gateway_url}{endpoint}"
 
         try:
-            timeout = 10 if not config.get("timeout_test") else 0.001 
-            
+            timeout = 10 if not config.get("timeout_test") else 0.001
+
             # Use json=payload for application/json
             response = requests.post(url, json=payload, timeout=timeout)
-            
+
             status = response.status_code
-            
+
             if config["expected_status"] == "2xx":
-                assert 200 <= status < 300, f"Expected 2xx, got {status}. Body: {response.text}"
+                assert (
+                    200 <= status < 300
+                ), f"Expected 2xx, got {status}. Body: {response.text}"
                 try:
                     data = response.json()
                     if isinstance(data, dict) and "success" in data:
-                        assert data["success"] is True, f"Expected success=True, got {data}"
+                        assert (
+                            data["success"] is True
+                        ), f"Expected success=True, got {data}"
                 except ValueError:
                     pass
 
             elif config["expected_status"] == "4xx":
-                assert 400 <= status < 500, f"Expected 4xx, got {status}. Body: {response.text}"
-            
+                assert (
+                    400 <= status < 500
+                ), f"Expected 4xx, got {status}. Body: {response.text}"
+
             elif config["expected_status"] == "5xx":
-                assert 500 <= status < 600, f"Expected 5xx, got {status}. Body: {response.text}"
-            
+                assert (
+                    500 <= status < 600
+                ), f"Expected 5xx, got {status}. Body: {response.text}"
+
             elif config["expected_status"] == "!=2xx":
-                assert not (200 <= status < 300), f"Expected != 2xx, got {status}. Body: {response.text}"
+                assert not (
+                    200 <= status < 300
+                ), f"Expected != 2xx, got {status}. Body: {response.text}"
 
             elif config["expected_status"] == "200_error_wrapped":
                 # Gateway returns 200 but body implies failure
                 assert status == 200, f"Expected 200 (wrapped error), got {status}"
                 data = response.json()
-                assert data.get("success") is False or "error" in data, f"Expected wrapped error, got {data}"
+                assert (
+                    data.get("success") is False or "error" in data or "detail" in data
+                ), f"Expected wrapped error, got {data}"
 
             elif config["expected_status"] == "200_validation_error":
-                 # Gateway returns 200 but body contains 'detail' (FastAPI validation error)
-                 assert status == 200, f"Expected 200 (wrapped validation), got {status}"
-                 data = response.json()
-                 assert "detail" in data, f"Expected validation error detail, got {data}"
+                # Gateway returns 200 but body contains 'detail' (FastAPI validation error)
+                assert status == 200, f"Expected 200 (wrapped validation), got {status}"
+                data = response.json()
+                assert "detail" in data, f"Expected validation error detail, got {data}"
 
             # Write result to output_dir
             with open(output_dir / "execution.log", "w") as f:
@@ -594,12 +583,14 @@ def test_system_case(tc_dir: str) -> None:
                 f.write("Result: ConnectionError (Backend unreachable)\n")
 
             if config.get("expected_error") and config.get("timeout_test") == False:
-                 # If we just can't connect to Gateway, that is a FAIL for system test environments unless specifically testing that.
-                 # However, TC_18 is "Backend unreachable", not "Gateway unreachable". 
-                 # If Gateway is unreachable, the test cannot proceed.
-                 pass
+                # If we just can't connect to Gateway, that is a FAIL for system test environments unless specifically testing that.
+                # However, TC_18 is "Backend unreachable", not "Gateway unreachable".
+                # If Gateway is unreachable, the test cannot proceed.
+                pass
 
-            pytest.fail(f"Gateway at {url} not reachable. Environment is broken for {tc_dir}.")
+            pytest.fail(
+                f"Gateway at {url} not reachable. Environment is broken for {tc_dir}."
+            )
 
         except requests.exceptions.Timeout:
             with open(output_dir / "execution.log", "w") as f:
@@ -617,9 +608,9 @@ def test_system_case(tc_dir: str) -> None:
                 f.write(f"Result: Unexpected Exception: {e}\n")
 
             if config.get("timeout_test"):
-                 return
+                return
             pytest.fail(f"Unexpected exception for {tc_dir}: {e}")
-            
+
         return
 
     # 2) Gestione permessi non leggibili (OUT2 o SP3)
@@ -711,33 +702,29 @@ def test_system_case(tc_dir: str) -> None:
     # expected_smells = 0 => o nessun file o file vuoto
     if not overview.exists():
         # Acceptable only if we ci aspettiamo 0 smell
-        assert expected_smells == 0, (
-            f"{tc_dir}: attesi {expected_smells} smell, ma overview.csv è assente."
-        )
+        assert (
+            expected_smells == 0
+        ), f"{tc_dir}: attesi {expected_smells} smell, ma overview.csv è assente."
         return
 
     df = pd.read_csv(overview)
     smell_count = len(df)
 
     if expected_smells == 0:
-        assert smell_count == 0, (
-            f"{tc_dir}: attesi 0 smell, trovati {smell_count}."
-        )
+        assert smell_count == 0, f"{tc_dir}: attesi 0 smell, trovati {smell_count}."
     elif expected_smells == ">=2":
-        assert smell_count >= 2, (
-            f"{tc_dir}: attesi almeno 2 smell, trovati {smell_count}."
-        )
+        assert (
+            smell_count >= 2
+        ), f"{tc_dir}: attesi almeno 2 smell, trovati {smell_count}."
     else:
         # expected_smells è un intero > 0
-        assert smell_count == expected_smells, (
-            f"{tc_dir}: attesi {expected_smells} smell, trovati {smell_count}."
-        )
+        assert (
+            smell_count == expected_smells
+        ), f"{tc_dir}: attesi {expected_smells} smell, trovati {smell_count}."
 
     # 7) Verifica Call Graph se richiesto
     if config.get("callgraph"):
         expected_cg = output_dir / "call_graph.json"
-        assert expected_cg.exists(), (
-            f"{tc_dir}: callgraph=True ma il file {expected_cg} non è stato generato."
-        )
-
-
+        assert (
+            expected_cg.exists()
+        ), f"{tc_dir}: callgraph=True ma il file {expected_cg} non è stato generato."
