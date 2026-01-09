@@ -38,9 +38,9 @@ jobs:
           Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
 
       # Run linting
-      - name: Run flake8
-        run: flake8 --exclude input/projects/example,test/system_testing,datasets .
-        continue-on-error: true
+      # - name: Run flake8
+      #   run: flake8 --exclude input/projects/example,test/system_testing,datasets .
+      #   continue-on-error: true
 
 
       # Run tests with pytest and collect coverage
