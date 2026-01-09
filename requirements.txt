@@ -6,8 +6,10 @@ typing-extensions~=4.5.0
 matplotlib>=3.7.0
 openpyxl
 flake8
+coverage
 requests
 pytest
+pytest-cov
 pytest-mock
 pytest-xvfb
 uvicorn
